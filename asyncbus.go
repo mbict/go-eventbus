@@ -6,7 +6,7 @@ import (
 
 type asyncEventBus struct {
 	handlers map[string]eventHandlers
-	mu       sync.RWMutex
+	mu       sync.Mutex
 }
 
 func (eb *asyncEventBus) Subscribe(handler EventHandler, events ...Event) {
@@ -45,7 +45,8 @@ func (eb *asyncEventBus) Unsubscribe(handler EventHandler, events ...Event) {
 }
 
 func (eb *asyncEventBus) Publish(event Event) error {
-	eb.mu.RLock()
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
 	var wg sync.WaitGroup
 
 	for _, handler := range eb.handlers[event.EventName()] {
@@ -65,7 +66,6 @@ func (eb *asyncEventBus) Publish(event Event) error {
 		}(handler)
 	}
 
-	eb.mu.RUnlock()
 	wg.Wait()
 	return nil
 }

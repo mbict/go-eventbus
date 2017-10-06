@@ -6,7 +6,7 @@ import (
 
 type concurrentEventBus struct {
 	EventBus
-	mu sync.RWMutex
+	mu sync.Mutex
 }
 
 func (eb *concurrentEventBus) Subscribe(handler EventHandler, events ...Event) {
@@ -22,8 +22,8 @@ func (eb *concurrentEventBus) Unsubscribe(handler EventHandler, events ...Event)
 }
 
 func (eb *concurrentEventBus) Publish(event Event) error {
-	eb.mu.RLock()
-	defer eb.mu.RUnlock()
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
 	return eb.EventBus.Publish(event)
 }
 
