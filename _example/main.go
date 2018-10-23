@@ -5,46 +5,51 @@ import (
 	eb "github.com/mbict/go-eventbus"
 )
 
-// MyEvent
-type MyEvent struct {
+// MyEvent is the event type descriptor
+const MyEvent eb.EventType = "my.event"
+
+// MyEventPayload holds the event data
+type MyEventPayload struct {
 	Message string
 }
 
-// EventName is needed to identify this event, Pointer receiver
-// Reflection is just too expensive for this
-func (*MyEvent) EventName() string {
-	return "my.event"
+// EventType is needed to identify this event
+func (*MyEventPayload) EventType() eb.EventType {
+	return MyEvent
 }
 
-type OtherEvent struct {
+// OtherEvent is the event type desciptor
+const OtherEvent eb.EventType = "other.event"
+
+// OtherEventPayload holds the event data
+type OtherEventPayload struct {
 	Message string
 }
 
-// EventName is needed to identify this event
-// Reflection is just too expensive for this
-func (OtherEvent) EventName() string {
-	return "other.event"
+// EventType is needed to identify this event
+func (OtherEventPayload) EventType() eb.EventType {
+	return OtherEvent
 }
 
 func main() {
 	//example of the event handler with a pointer receiver
 	eventHandler := eb.EventHandlerFunc(func(event eb.Event) {
-		e := event.(*MyEvent)
+		e := event.(*MyEventPayload)
 		fmt.Println("handled event", e.Message)
 	})
 
 	//example of the event handler
 	otherEventHandler := eb.EventHandlerFunc(func(event eb.Event) {
-		e := event.(OtherEvent)
+		e := event.(OtherEventPayload)
 		fmt.Println("handled event", e.Message)
 	})
 
 	//wildcard handler
 	catchallEventHandler := eb.EventHandlerFunc(func(event eb.Event) {
 		switch e := event.(type) {
-		case *MyEvent:
+		case *MyEventPayload:
 			fmt.Println("my event triggered in catch all", e.Message)
-		case OtherEvent:
+		case OtherEventPayload:
 			fmt.Println("other event triggered in catch all", e.Message)
 		}
 	})
@@ -52,29 +57,29 @@ func main() {
 	bus := eb.New()
 
 	//subscribe with a pointer event
-	bus.Subscribe(eventHandler, (*MyEvent)(nil))
+	bus.Subscribe(eventHandler, MyEvent)
 
 	//subscribe with a event
-	bus.Subscribe(otherEventHandler, OtherEvent{})
+	bus.Subscribe(otherEventHandler, OtherEvent)
 
 	//subscribe to all events
 	bus.Subscribe(catchallEventHandler)
 
 	// create a event and send it to the bus
-	event1 := &MyEvent{
+	event1 := &MyEventPayload{
 		Message: "hello you!",
 	}
 	bus.Publish(event1)
 
 	// and now the normal receiver
-	event2 := OtherEvent{
+	event2 := OtherEventPayload{
 		Message: "hey you are the other one, also hello to you too!",
 	}
 	bus.Publish(event2)
 
 	//you can also unsubscribe the handler for specific events (if registered)
-	bus.Unsubscribe(eventHandler, (*MyEvent)(nil))
-	bus.Unsubscribe(otherEventHandler, OtherEvent{})
+	bus.Unsubscribe(eventHandler, MyEvent)
+	bus.Unsubscribe(otherEventHandler, OtherEvent)
 
 	//or from all the events, also specific events will be unsubscribed if the handler matches
 	bus.Unsubscribe(eventHandler)

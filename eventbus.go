@@ -4,8 +4,10 @@ import (
 	"reflect"
 )
 
+type EventType string
+
 type Event interface {
-	EventName() string
+	EventType() EventType
 }
 
 type EventHandler interface {
@@ -19,8 +21,8 @@ func (h EventHandlerFunc) Handle(event Event) {
 }
 
 type EventBus interface {
-	Subscribe(EventHandler, ...Event)
-	Unsubscribe(EventHandler, ...Event)
+	Subscribe(EventHandler, ...EventType)
+	Unsubscribe(EventHandler, ...EventType)
 	Publish(Event) error
 }
 
@@ -32,38 +34,37 @@ func ChainEventHandler(handler EventHandler, wrap EventHandler) EventHandler {
 }
 
 type eventHandlers []EventHandler
-type eventChannels map[string]eventHandlers
+type eventChannels map[EventType]eventHandlers
 
 type eventBus struct {
 	handlers eventChannels
 }
 
-func (eb *eventBus) Subscribe(handler EventHandler, events ...Event) {
+func (eb *eventBus) Subscribe(handler EventHandler, events ...EventType) {
 	if len(events) == 0 {
 		eb.handlers["*"] = append(eb.handlers["*"], handler)
 		return
 	}
 
-	for _, event := range events {
-		eb.handlers[event.EventName()] = append(eb.handlers[event.EventName()], handler)
+	for _, eventType := range events {
+		eb.handlers[eventType] = append(eb.handlers[eventType], handler)
 	}
 }
 
-func (eb *eventBus) Unsubscribe(handler EventHandler, events ...Event) {
+func (eb *eventBus) Unsubscribe(handler EventHandler, events ...EventType) {
 	if len(events) == 0 {
-		for k := range eb.handlers {
-			eb.handlers[k] = removeHandlerFromSlice(eb.handlers[k], handler)
-			if len(eb.handlers[k]) == 0 {
-				delete(eb.handlers, k)
+		for eventType := range eb.handlers {
+			eb.handlers[eventType] = removeHandlerFromSlice(eb.handlers[eventType], handler)
+			if len(eb.handlers[eventType]) == 0 {
+				delete(eb.handlers, eventType)
 			}
 		}
 	}
 
-	for _, e := range events {
-		k := e.EventName()
-		eb.handlers[k] = removeHandlerFromSlice(eb.handlers[k], handler)
-		if len(eb.handlers[k]) == 0 {
-			delete(eb.handlers, k)
+	for _, eventType := range events {
+		eb.handlers[eventType] = removeHandlerFromSlice(eb.handlers[eventType], handler)
+		if len(eb.handlers[eventType]) == 0 {
+			delete(eb.handlers, eventType)
 		}
 	}
 }
@@ -80,7 +81,7 @@ func removeHandlerFromSlice(eh eventHandlers, h EventHandler) eventHandlers {
 }
 
 func (eb *eventBus) Publish(event Event) error {
-	for _, handler := range eb.handlers[event.EventName()] {
+	for _, handler := range eb.handlers[event.EventType()] {
 		handler.Handle(event)
 	}
 

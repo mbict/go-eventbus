@@ -1,23 +1,23 @@
 package _bench
 
 import (
-	"testing"
 	"github.com/mbict/go-eventbus"
 	"sync"
+	"testing"
 )
 
 type testEvent struct {
 	Number int
 }
 
-func (testEvent) EventName() string {
+func (testEvent) EventType() eventbus.EventType {
 	return "test.event"
 }
 
 func eventHandler(event eventbus.Event) {
 	e := event.(testEvent)
-	for i :=0; i <= 1000; i++ {
-		e.Number+=i
+	for i := 0; i <= 1000; i++ {
+		e.Number += i
 	}
 }
 
@@ -85,16 +85,12 @@ func BenchmarkPlainChannel(b *testing.B) {
 		for true {
 			select {
 			case evt := <-c:
-				ee := evt.(testEvent)
-				for i :=0; i <= 1000; i++ {
-					ee.Number+=i
-				}
+				eventHandler(evt)
 			case <-done:
 				return
 			}
 		}
 	}()
-
 
 	var wg sync.WaitGroup
 	for n := 0; n < b.N; n++ {

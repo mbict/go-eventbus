@@ -9,13 +9,13 @@ type concurrentEventBus struct {
 	mu sync.Mutex
 }
 
-func (eb *concurrentEventBus) Subscribe(handler EventHandler, events ...Event) {
+func (eb *concurrentEventBus) Subscribe(handler EventHandler, events ...EventType) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 	eb.EventBus.Subscribe(handler, events...)
 }
 
-func (eb *concurrentEventBus) Unsubscribe(handler EventHandler, events ...Event) {
+func (eb *concurrentEventBus) Unsubscribe(handler EventHandler, events ...EventType) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 	eb.EventBus.Unsubscribe(handler, events...)

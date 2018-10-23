@@ -5,11 +5,11 @@ import (
 )
 
 type asyncEventBus struct {
-	handlers map[string]eventHandlers
+	handlers map[EventType]eventHandlers
 	mu       sync.Mutex
 }
 
-func (eb *asyncEventBus) Subscribe(handler EventHandler, events ...Event) {
+func (eb *asyncEventBus) Subscribe(handler EventHandler, events ...EventType) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 	if len(events) == 0 {
@@ -17,29 +17,28 @@ func (eb *asyncEventBus) Subscribe(handler EventHandler, events ...Event) {
 		return
 	}
 
-	for _, event := range events {
-		eb.handlers[event.EventName()] = append(eb.handlers[event.EventName()], handler)
+	for _, eventType := range events {
+		eb.handlers[eventType] = append(eb.handlers[eventType], handler)
 	}
 }
 
-func (eb *asyncEventBus) Unsubscribe(handler EventHandler, events ...Event) {
+func (eb *asyncEventBus) Unsubscribe(handler EventHandler, events ...EventType) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
 	if len(events) == 0 {
-		for k := range eb.handlers {
-			eb.handlers[k] = removeHandlerFromSlice(eb.handlers[k], handler)
-			if len(eb.handlers[k]) == 0 {
-				delete(eb.handlers, k)
+		for eventType := range eb.handlers {
+			eb.handlers[eventType] = removeHandlerFromSlice(eb.handlers[eventType], handler)
+			if len(eb.handlers[eventType]) == 0 {
+				delete(eb.handlers, eventType)
 			}
 		}
 	}
 
-	for _, e := range events {
-		k := e.EventName()
-		eb.handlers[k] = removeHandlerFromSlice(eb.handlers[k], handler)
-		if len(eb.handlers[k]) == 0 {
-			delete(eb.handlers, k)
+	for _, eventType := range events {
+		eb.handlers[eventType] = removeHandlerFromSlice(eb.handlers[eventType], handler)
+		if len(eb.handlers[eventType]) == 0 {
+			delete(eb.handlers, eventType)
 		}
 	}
 }
@@ -49,7 +48,7 @@ func (eb *asyncEventBus) Publish(event Event) error {
 	defer eb.mu.Unlock()
 	var wg sync.WaitGroup
 
-	for _, handler := range eb.handlers[event.EventName()] {
+	for _, handler := range eb.handlers[event.EventType()] {
 		wg.Add(1)
 		go func(handler EventHandler) {
 			handler.Handle(event)

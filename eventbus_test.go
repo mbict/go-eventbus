@@ -2,20 +2,25 @@ package eventbus
 
 import "testing"
 
+const (
+	EventA EventType = "event:test1"
+	EventB EventType = "event:test2"
+)
+
 type TestEventA struct {
 	Handled int
 }
 
-func (*TestEventA) EventName() string {
-	return "test.event1"
+func (*TestEventA) EventType() EventType {
+	return EventA
 }
 
 type TestEventB struct {
 	Handled int
 }
 
-func (*TestEventB) EventName() string {
-	return "test.event2"
+func (*TestEventB) EventType() EventType {
+	return EventB
 }
 
 func TestEventBus(t *testing.T) {
@@ -25,8 +30,8 @@ func TestEventBus(t *testing.T) {
 	})
 
 	bus := New()
-	bus.Subscribe(eventHandler, (*TestEventA)(nil))
-	bus.Subscribe(eventHandler, (*TestEventB)(nil))
+	bus.Subscribe(eventHandler, EventA)
+	bus.Subscribe(eventHandler, (*TestEventB)(nil).EventType())
 	event := &TestEventA{}
 
 	err := bus.Publish(event)
@@ -48,7 +53,7 @@ func TestEventBusCatchAll(t *testing.T) {
 
 	bus := New()
 	bus.Subscribe(eventHandler)
-	bus.Subscribe(eventHandler, (*TestEventB)(nil))
+	bus.Subscribe(eventHandler, EventB)
 	event := &TestEventA{}
 
 	err := bus.Publish(event)
@@ -73,13 +78,13 @@ func TestEventBusUnsubscribeForSpecficEvent(t *testing.T) {
 	})
 
 	bus := New()
-	bus.Subscribe(eventHandler, (*TestEventA)(nil))
-	bus.Subscribe(eventHandler, (*TestEventB)(nil))
+	bus.Subscribe(eventHandler, EventA)
+	bus.Subscribe(eventHandler, (*TestEventB)(nil).EventType())
 
 	eventA := &TestEventA{}
 	eventB := &TestEventB{}
 
-	bus.Unsubscribe(eventHandler, (*TestEventA)(nil))
+	bus.Unsubscribe(eventHandler, (*TestEventA)(nil).EventType())
 	err := bus.Publish(eventA)
 
 	if err != nil {
@@ -113,9 +118,9 @@ func TestEventBusUnsubscribeAll(t *testing.T) {
 	})
 
 	bus := New()
-	bus.Subscribe(eventHandlerA, (*TestEventA)(nil))
-	bus.Subscribe(eventHandlerA, (*TestEventB)(nil))
-	bus.Subscribe(eventHandlerB, (*TestEventB)(nil))
+	bus.Subscribe(eventHandlerA, EventA)
+	bus.Subscribe(eventHandlerA, (*TestEventB)(nil).EventType())
+	bus.Subscribe(eventHandlerB, EventB)
 	bus.Subscribe(eventHandlerA)
 	bus.Subscribe(eventHandlerB)
 
