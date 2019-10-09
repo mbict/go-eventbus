@@ -4,21 +4,23 @@ import (
 	"reflect"
 )
 
-type EventType string
+type EventType = string
 
 type Event interface {
 	EventType() EventType
 }
 
 type EventHandler interface {
-	Handle(event Event)
+	Handle(event Event) error
 }
 
-type EventHandlerFunc func(event Event)
+type EventHandlerFunc func(event Event) error
 
-func (h EventHandlerFunc) Handle(event Event) {
-	h(event)
+func (h EventHandlerFunc) Handle(event Event) error {
+	return h(event)
 }
+
+type PublishErrorHandlerFunc func(error, Event) error
 
 type EventBus interface {
 	Subscribe(EventHandler, ...EventType)
@@ -27,9 +29,11 @@ type EventBus interface {
 }
 
 func ChainEventHandler(handler EventHandler, wrap EventHandler) EventHandler {
-	return EventHandlerFunc(func(event Event) {
-		wrap.Handle(event)
-		handler.Handle(event)
+	return EventHandlerFunc(func(event Event) error {
+		if err := wrap.Handle(event); err != nil {
+			return err
+		}
+		return handler.Handle(event)
 	})
 }
 
@@ -37,7 +41,8 @@ type eventHandlers []EventHandler
 type eventChannels map[EventType]eventHandlers
 
 type eventBus struct {
-	handlers eventChannels
+	handlers         eventChannels
+	errorHandlerFunc PublishErrorHandlerFunc
 }
 
 func (eb *eventBus) Subscribe(handler EventHandler, events ...EventType) {
@@ -81,13 +86,34 @@ func removeHandlerFromSlice(eh eventHandlers, h EventHandler) eventHandlers {
 }
 
 func (eb *eventBus) Publish(event Event) error {
-	for _, handler := range eb.handlers[event.EventType()] {
-		handler.Handle(event)
+	//specific event name handler
+	if err := eb.publishEvent(event, eb.handlers[event.EventType()]); err != nil {
+		return err
 	}
 
 	//catchall event handlers
-	for _, handler := range eb.handlers["*"] {
-		handler.Handle(event)
+	if err := eb.publishEvent(event, eb.handlers["*"]); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (eb *eventBus) publishEvent(event Event, handlers eventHandlers) error {
+	for _, handler := range handlers {
+		if err := handler.Handle(event); err != nil {
+			if err := eb.handlePublishError(err, event); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (eb *eventBus) handlePublishError(err error, event Event) error {
+	if eb.errorHandlerFunc == nil {
+		return err
+	} else if err := eb.errorHandlerFunc(err, event); err != nil {
+		return err
 	}
 	return nil
 }
@@ -95,5 +121,12 @@ func (eb *eventBus) Publish(event Event) error {
 func New() EventBus {
 	return &eventBus{
 		handlers: make(eventChannels),
+	}
+}
+
+func NewWithErrorHandler(errorHandlerFunc PublishErrorHandlerFunc) EventBus {
+	return &eventBus{
+		handlers:         make(eventChannels),
+		errorHandlerFunc: errorHandlerFunc,
 	}
 }

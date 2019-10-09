@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	eb "github.com/mbict/go-eventbus"
+	eb "github.com/mbict/go-eventbus/v1"
 )
 
 // MyEvent is the event type descriptor
@@ -33,25 +33,28 @@ func (OtherEventPayload) EventType() eb.EventType {
 
 func main() {
 	//example of the event handler with a pointer receiver
-	eventHandler := eb.EventHandlerFunc(func(event eb.Event) {
+	eventHandler := eb.EventHandlerFunc(func(event eb.Event) error {
 		e := event.(*MyEventPayload)
 		fmt.Println("handled event", e.Message)
+		return nil
 	})
 
 	//example of the event handler
-	otherEventHandler := eb.EventHandlerFunc(func(event eb.Event) {
+	otherEventHandler := eb.EventHandlerFunc(func(event eb.Event) error {
 		e := event.(OtherEventPayload)
 		fmt.Println("handled event", e.Message)
+		return nil
 	})
 
 	//wildcard handler
-	catchallEventHandler := eb.EventHandlerFunc(func(event eb.Event) {
+	catchallEventHandler := eb.EventHandlerFunc(func(event eb.Event) error {
 		switch e := event.(type) {
 		case *MyEventPayload:
 			fmt.Println("my event triggered in catch all", e.Message)
 		case OtherEventPayload:
 			fmt.Println("other event triggered in catch all", e.Message)
 		}
+		return nil
 	})
 
 	bus := eb.New()

@@ -5,8 +5,9 @@ import (
 )
 
 type asyncEventBus struct {
-	handlers map[EventType]eventHandlers
-	mu       sync.Mutex
+	handlers         map[EventType]eventHandlers
+	errorHandlerFunc PublishErrorHandlerFunc
+	mu               sync.Mutex
 }
 
 func (eb *asyncEventBus) Subscribe(handler EventHandler, events ...EventType) {
@@ -72,5 +73,12 @@ func (eb *asyncEventBus) Publish(event Event) error {
 func NewAsync() EventBus {
 	return &asyncEventBus{
 		handlers: make(eventChannels),
+	}
+}
+
+func NewAsyncWithErrorHandler(errorHandlerFunc PublishErrorHandlerFunc) EventBus {
+	return &asyncEventBus{
+		handlers:         make(eventChannels),
+		errorHandlerFunc: errorHandlerFunc,
 	}
 }

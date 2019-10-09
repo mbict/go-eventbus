@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/mbict/go-eventbus"
+	"github.com/mbict/go-eventbus/v1"
 	"time"
 )
 
@@ -16,8 +16,9 @@ func (testEvent) EventType() eventbus.EventType {
 
 var counter int
 
-func handler(_ eventbus.Event) {
+func handler(_ eventbus.Event) error {
 	counter++
+	return nil
 }
 
 //just a simple brute force test

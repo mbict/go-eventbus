@@ -14,7 +14,7 @@ func (eb *channeledEventBus) Publish(event Event) (err error) {
 	return nil
 }
 
-func NewChanneld() (EventBus, CancelFunc) {
+func NewChanneld(errorHandler PublishErrorHandlerFunc) (EventBus, CancelFunc) {
 	return NewChanneldWith(NewConcurrent())
 }
 
@@ -29,7 +29,7 @@ func NewChanneldWith(eventBus EventBus) (EventBus, CancelFunc) {
 		for true {
 			select {
 			case event := <-eb.c:
-				eb.EventBus.Publish(event)
+				_ = eb.EventBus.Publish(event)
 			case <-done:
 				close(eb.c)
 				close(done)

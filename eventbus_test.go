@@ -1,6 +1,9 @@
 package eventbus
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 const (
 	EventA EventType = "event:test1"
@@ -24,9 +27,10 @@ func (*TestEventB) EventType() EventType {
 }
 
 func TestEventBus(t *testing.T) {
-	eventHandler := EventHandlerFunc(func(event Event) {
+	eventHandler := EventHandlerFunc(func(event Event) error {
 		test := event.(*TestEventA)
 		test.Handled++
+		return nil
 	})
 
 	bus := New()
@@ -46,9 +50,10 @@ func TestEventBus(t *testing.T) {
 }
 
 func TestEventBusCatchAll(t *testing.T) {
-	eventHandler := EventHandlerFunc(func(event Event) {
+	eventHandler := EventHandlerFunc(func(event Event) error {
 		test := event.(*TestEventA)
 		test.Handled++
+		return nil
 	})
 
 	bus := New()
@@ -68,13 +73,14 @@ func TestEventBusCatchAll(t *testing.T) {
 }
 
 func TestEventBusUnsubscribeForSpecficEvent(t *testing.T) {
-	eventHandler := EventHandlerFunc(func(event Event) {
+	eventHandler := EventHandlerFunc(func(event Event) error {
 		if v, ok := event.(*TestEventA); ok {
 			v.Handled++
 		}
 		if v, ok := event.(*TestEventB); ok {
 			v.Handled++
 		}
+		return nil
 	})
 
 	bus := New()
@@ -106,15 +112,17 @@ func TestEventBusUnsubscribeForSpecficEvent(t *testing.T) {
 }
 
 func TestEventBusUnsubscribeAll(t *testing.T) {
-	eventHandlerA := EventHandlerFunc(func(event Event) {
+	eventHandlerA := EventHandlerFunc(func(event Event) error {
 		if v, ok := event.(*TestEventA); ok {
 			v.Handled++
 		}
+		return nil
 	})
-	eventHandlerB := EventHandlerFunc(func(event Event) {
+	eventHandlerB := EventHandlerFunc(func(event Event) error {
 		if v, ok := event.(*TestEventB); ok {
 			v.Handled++
 		}
+		return nil
 	})
 
 	bus := New()
@@ -137,5 +145,81 @@ func TestEventBusUnsubscribeAll(t *testing.T) {
 
 	if eventB.Handled != 2 {
 		t.Fatalf("expected event to be handled once, but is handled %d times", eventB.Handled)
+	}
+}
+
+func TestEventBusPublishErrorWithoutErrorHandler(t *testing.T) {
+	expectedErr := errors.New("unhandled error")
+	eventHandler := EventHandlerFunc(func(event Event) error {
+		return expectedErr
+	})
+
+	bus := New()
+	bus.Subscribe(eventHandler, EventA)
+	event := &TestEventA{}
+
+	err := bus.Publish(event)
+
+	if err != expectedErr {
+		t.Fatalf("expected error, but got %v", err)
+	}
+}
+
+func TestEventBusHandlesError(t *testing.T) {
+	expectedErr := errors.New("unhandled error")
+	expectedEvent := &TestEventA{}
+	eventHandler := EventHandlerFunc(func(event Event) error {
+		if v, ok := event.(*TestEventA); ok {
+			v.Handled++
+		}
+		return expectedErr
+	})
+
+	bus := NewWithErrorHandler(func(err error, event Event) error {
+		if err != expectedErr {
+			t.Fatalf("expected error, but got %v", err)
+		}
+		return nil
+	})
+	bus.Subscribe(eventHandler, EventA)
+
+	err := bus.Publish(expectedEvent)
+
+	if err != nil {
+		t.Fatalf("expected nil error, but got %v", err)
+	}
+
+	if expectedEvent.Handled != 1 {
+		t.Fatalf("expected event to be handled once, but is handled %d times", expectedEvent.Handled)
+	}
+}
+
+func TestEventBusReturnsErrorWhenPublishErrorHandlerFails(t *testing.T) {
+	expectedErr := errors.New("unhandled error")
+	expectedPublishErr := errors.New("unhandled publish error")
+	expectedEvent := &TestEventA{}
+	eventHandler := EventHandlerFunc(func(event Event) error {
+		if v, ok := event.(*TestEventA); ok {
+			v.Handled++
+		}
+		return expectedErr
+	})
+
+	bus := NewWithErrorHandler(func(err error, event Event) error {
+		if err != expectedErr {
+			t.Fatalf("expected error, but got %v", err)
+		}
+		return expectedPublishErr
+	})
+	bus.Subscribe(eventHandler, EventA)
+
+	err := bus.Publish(expectedEvent)
+
+	if err != expectedPublishErr {
+		t.Fatalf("expected error, but got %v", expectedPublishErr)
+	}
+
+	if expectedEvent.Handled != 1 {
+		t.Fatalf("expected event to be handled once, but is handled %d times", expectedEvent.Handled)
 	}
 }

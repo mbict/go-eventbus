@@ -1,7 +1,7 @@
 package _bench
 
 import (
-	"github.com/mbict/go-eventbus"
+	"github.com/mbict/go-eventbus/v1"
 	"sync"
 	"testing"
 )
@@ -14,11 +14,12 @@ func (testEvent) EventType() eventbus.EventType {
 	return "test.event"
 }
 
-func eventHandler(event eventbus.Event) {
+func eventHandler(event eventbus.Event) error {
 	e := event.(testEvent)
 	for i := 0; i <= 1000; i++ {
 		e.Number += i
 	}
+	return nil
 }
 
 func BenchmarkSimpleBus(b *testing.B) {
