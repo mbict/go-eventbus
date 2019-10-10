@@ -1,3 +1,3 @@
-module github.com/mbict/go-eventbus/v1
+module github.com/mbict/go-eventbus
 
 go 1.13
