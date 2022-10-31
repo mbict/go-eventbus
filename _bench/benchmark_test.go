@@ -1,7 +1,7 @@
 package _bench
 
 import (
-	"github.com/mbict/go-eventbus/v1"
+	"github.com/mbict/go-eventbus/v2"
 	"sync"
 	"testing"
 )
@@ -10,11 +10,11 @@ type testEvent struct {
 	Number int
 }
 
-func (testEvent) EventType() eventbus.EventType {
+func (testEvent) EventName() eventbus.EventName {
 	return "test.event"
 }
 
-func eventHandler(event eventbus.Event) error {
+func eventHandler(event any) error {
 	e := event.(testEvent)
 	for i := 0; i <= 1000; i++ {
 		e.Number += i

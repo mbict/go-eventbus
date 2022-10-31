@@ -4,32 +4,32 @@ import (
 	"reflect"
 )
 
-type EventType = string
+type EventName = string
 
 type Event interface {
-	EventType() EventType
+	EventName() EventName
 }
 
 type EventHandler interface {
-	Handle(event Event) error
+	Handle(event any) error
 }
 
-type EventHandlerFunc func(event Event) error
+type EventHandlerFunc func(event any) error
 
-func (h EventHandlerFunc) Handle(event Event) error {
+func (h EventHandlerFunc) Handle(event any) error {
 	return h(event)
 }
 
-type PublishErrorHandlerFunc func(error, Event) error
+type PublishErrorHandlerFunc func(error, any) error
 
 type EventBus interface {
-	Subscribe(EventHandler, ...EventType)
-	Unsubscribe(EventHandler, ...EventType)
-	Publish(Event) error
+	Subscribe(EventHandler, ...EventName)
+	Unsubscribe(EventHandler, ...EventName)
+	Publish(any) error
 }
 
-func ChainEventHandler(handler EventHandler, wrap EventHandler) EventHandler {
-	return EventHandlerFunc(func(event Event) error {
+func Chain(handler EventHandler, wrap EventHandler) EventHandler {
+	return EventHandlerFunc(func(event any) error {
 		if err := wrap.Handle(event); err != nil {
 			return err
 		}
@@ -38,14 +38,23 @@ func ChainEventHandler(handler EventHandler, wrap EventHandler) EventHandler {
 }
 
 type eventHandlers []EventHandler
-type eventChannels map[EventType]eventHandlers
+type eventChannels map[EventName]eventHandlers
 
 type eventBus struct {
-	handlers         eventChannels
-	errorHandlerFunc PublishErrorHandlerFunc
+	handlers          eventChannels
+	errorHandlerFunc  PublishErrorHandlerFunc
+	eventNameResolver EventNameResolver
 }
 
-func (eb *eventBus) Subscribe(handler EventHandler, events ...EventType) {
+func (eb *eventBus) setEventResolver(resolver EventNameResolver) {
+	eb.eventNameResolver = resolver
+}
+
+func (eb *eventBus) setErrorHandler(errorHandler PublishErrorHandlerFunc) {
+	eb.errorHandlerFunc = errorHandler
+}
+
+func (eb *eventBus) Subscribe(handler EventHandler, events ...EventName) {
 	if len(events) == 0 {
 		eb.handlers["*"] = append(eb.handlers["*"], handler)
 		return
@@ -56,7 +65,7 @@ func (eb *eventBus) Subscribe(handler EventHandler, events ...EventType) {
 	}
 }
 
-func (eb *eventBus) Unsubscribe(handler EventHandler, events ...EventType) {
+func (eb *eventBus) Unsubscribe(handler EventHandler, events ...EventName) {
 	if len(events) == 0 {
 		for eventType := range eb.handlers {
 			eb.handlers[eventType] = removeHandlerFromSlice(eb.handlers[eventType], handler)
@@ -85,9 +94,9 @@ func removeHandlerFromSlice(eh eventHandlers, h EventHandler) eventHandlers {
 	return eh
 }
 
-func (eb *eventBus) Publish(event Event) error {
+func (eb *eventBus) Publish(event any) error {
 	//specific event name handler
-	if err := eb.publishEvent(event, eb.handlers[event.EventType()]); err != nil {
+	if err := eb.publishEvent(event, eb.handlers[eb.eventNameResolver(event)]); err != nil {
 		return err
 	}
 
@@ -98,7 +107,7 @@ func (eb *eventBus) Publish(event Event) error {
 	return nil
 }
 
-func (eb *eventBus) publishEvent(event Event, handlers eventHandlers) error {
+func (eb *eventBus) publishEvent(event any, handlers eventHandlers) error {
 	for _, handler := range handlers {
 		if err := handler.Handle(event); err != nil {
 			if err := eb.handlePublishError(err, event); err != nil {
@@ -109,7 +118,7 @@ func (eb *eventBus) publishEvent(event Event, handlers eventHandlers) error {
 	return nil
 }
 
-func (eb *eventBus) handlePublishError(err error, event Event) error {
+func (eb *eventBus) handlePublishError(err error, event any) error {
 	if eb.errorHandlerFunc == nil {
 		return err
 	} else if err := eb.errorHandlerFunc(err, event); err != nil {
@@ -118,15 +127,15 @@ func (eb *eventBus) handlePublishError(err error, event Event) error {
 	return nil
 }
 
-func New() EventBus {
-	return &eventBus{
-		handlers: make(eventChannels),
+func New(options ...Option) EventBus {
+	eb := &eventBus{
+		handlers:          make(eventChannels),
+		eventNameResolver: resolveEventName,
 	}
-}
 
-func NewWithErrorHandler(errorHandlerFunc PublishErrorHandlerFunc) EventBus {
-	return &eventBus{
-		handlers:         make(eventChannels),
-		errorHandlerFunc: errorHandlerFunc,
+	for _, option := range options {
+		option(eb)
 	}
+
+	return eb
 }

@@ -5,12 +5,21 @@ import (
 )
 
 type asyncEventBus struct {
-	handlers         map[EventType]eventHandlers
+	handlers         map[EventName]eventHandlers
+	nameResolver     EventNameResolver
 	errorHandlerFunc PublishErrorHandlerFunc
 	mu               sync.Mutex
 }
 
-func (eb *asyncEventBus) Subscribe(handler EventHandler, events ...EventType) {
+func (eb *asyncEventBus) setEventResolver(resolver EventNameResolver) {
+	eb.nameResolver = resolveEventName
+}
+
+func (eb *asyncEventBus) setErrorHandler(errorHandler PublishErrorHandlerFunc) {
+	eb.errorHandlerFunc = errorHandler
+}
+
+func (eb *asyncEventBus) Subscribe(handler EventHandler, events ...EventName) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 	if len(events) == 0 {
@@ -23,7 +32,7 @@ func (eb *asyncEventBus) Subscribe(handler EventHandler, events ...EventType) {
 	}
 }
 
-func (eb *asyncEventBus) Unsubscribe(handler EventHandler, events ...EventType) {
+func (eb *asyncEventBus) Unsubscribe(handler EventHandler, events ...EventName) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
@@ -44,12 +53,12 @@ func (eb *asyncEventBus) Unsubscribe(handler EventHandler, events ...EventType) 
 	}
 }
 
-func (eb *asyncEventBus) Publish(event Event) error {
+func (eb *asyncEventBus) Publish(event any) error {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 	var wg sync.WaitGroup
 
-	for _, handler := range eb.handlers[event.EventType()] {
+	for _, handler := range eb.handlers[eb.nameResolver(event)] {
 		wg.Add(1)
 		go func(handler EventHandler) {
 			handler.Handle(event)
@@ -70,15 +79,15 @@ func (eb *asyncEventBus) Publish(event Event) error {
 	return nil
 }
 
-func NewAsync() EventBus {
-	return &asyncEventBus{
-		handlers: make(eventChannels),
+func NewAsync(options ...Option) EventBus {
+	eb := &asyncEventBus{
+		handlers:     make(eventChannels),
+		nameResolver: resolveEventName,
 	}
-}
 
-func NewAsyncWithErrorHandler(errorHandlerFunc PublishErrorHandlerFunc) EventBus {
-	return &asyncEventBus{
-		handlers:         make(eventChannels),
-		errorHandlerFunc: errorHandlerFunc,
+	for _, option := range options {
+		option(eb)
 	}
+
+	return eb
 }

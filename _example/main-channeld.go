@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/mbict/go-eventbus/v1"
+	"github.com/mbict/go-eventbus/v2"
 	"time"
 )
 
@@ -10,18 +10,18 @@ type testEvent struct {
 	Number int
 }
 
-func (testEvent) EventType() eventbus.EventType {
+func (testEvent) EventType() eventbus.EventName {
 	return "testEvent"
 }
 
 var counter int
 
-func handler(_ eventbus.Event) error {
+func handler(_ any) error {
 	counter++
 	return nil
 }
 
-//just a simple brute force test
+// just a simple brute force test
 func main() {
 	eb, cancelFunc := eventbus.NewChanneldWith(eventbus.New())
 	eb.Subscribe(eventbus.EventHandlerFunc(handler))

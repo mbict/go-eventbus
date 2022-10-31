@@ -6,23 +6,19 @@ type CancelFunc func()
 
 type channeledEventBus struct {
 	EventBus
-	c chan Event
+	c chan any
 }
 
-func (eb *channeledEventBus) Publish(event Event) (err error) {
+func (eb *channeledEventBus) Publish(event any) (err error) {
 	eb.c <- event
 	return nil
-}
-
-func NewChanneld(errorHandler PublishErrorHandlerFunc) (EventBus, CancelFunc) {
-	return NewChanneldWith(NewConcurrent())
 }
 
 func NewChanneldWith(eventBus EventBus) (EventBus, CancelFunc) {
 	done := make(chan bool)
 	eb := &channeledEventBus{
 		EventBus: eventBus,
-		c:        make(chan Event, 50),
+		c:        make(chan any, 100),
 	}
 
 	go func() {
