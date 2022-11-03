@@ -33,6 +33,13 @@ func EventHandlerResolver(handler any) (MappedHandlers, error) {
 		eventType := v.Type().In(0)
 		return func(evt any) error {
 			evti := reflect.ValueOf(evt)
+
+			//when the receiver kind is different kind than the event, and the event is a pointer
+			//we will convert the pointer to a value type
+			if v.Type().In(0).Kind() != evti.Kind() && evti.Kind() == reflect.Ptr {
+				evti = evti.Elem()
+			}
+
 			if evti.CanConvert(eventType) {
 				out := v.Call([]reflect.Value{evti.Convert(eventType)})
 				result := out[0].Interface()

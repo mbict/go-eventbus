@@ -5,6 +5,13 @@ import (
 	"testing"
 )
 
+type eventPtr struct {
+}
+
+func (e eventPtr) EventName() string {
+	return "eventPtr"
+}
+
 type eventA string
 
 func (e eventA) EventName() string {
@@ -121,4 +128,25 @@ func Test_RegisterHandlerWithFunc_non_compatible(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, res, 0)
+}
+
+func Test_RegisterHandlerWithPointerEventAndNonPointerReceiverConversion(t *testing.T) {
+	called := []string{}
+
+	// As the handler only specifies the evenbus.Event interface, we cannot determine the event name, and we assume the handler is intended for wildcard usage
+	h := func(event eventPtr) error { called = append(called, event.EventName()); return nil }
+
+	res, err := EventHandlerResolver(h)
+
+	assert.NoError(t, err)
+	assert.Len(t, res, 1)
+
+	assert.Contains(t, res, "eventPtr")
+	assert.Len(t, res["eventPtr"], 1)
+
+	//calling the returned method
+	err = res["eventPtr"][0](&eventPtr{})
+	assert.NoError(t, err)
+	assert.Len(t, called, 1)
+	assert.Equal(t, []string{"eventPtr"}, called)
 }
