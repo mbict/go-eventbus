@@ -8,7 +8,7 @@ type asyncEventBus struct {
 	handlers         map[EventName]eventHandlers
 	nameResolver     EventNameResolver
 	errorHandlerFunc PublishErrorHandlerFunc
-	mu               sync.Mutex
+	mu               sync.RWMutex
 }
 
 func (eb *asyncEventBus) setEventResolver(resolver EventNameResolver) {
@@ -54,28 +54,21 @@ func (eb *asyncEventBus) Unsubscribe(handler EventHandler, events ...EventName) 
 }
 
 func (eb *asyncEventBus) Publish(event any) error {
-	eb.mu.Lock()
-	defer eb.mu.Unlock()
-	var wg sync.WaitGroup
+	eb.mu.RLock()
+	defer eb.mu.RUnlock()
 
 	for _, handler := range eb.handlers[eb.nameResolver(event)] {
-		wg.Add(1)
 		go func(handler EventHandler) {
 			handler.Handle(event)
-			wg.Done()
 		}(handler)
 	}
 
 	//catchall event handlers
 	for _, handler := range eb.handlers["*"] {
-		wg.Add(1)
 		go func(handler EventHandler) {
 			handler.Handle(event)
-			wg.Done()
 		}(handler)
 	}
-
-	wg.Wait()
 	return nil
 }
 
